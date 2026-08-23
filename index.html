@@ -80,6 +80,20 @@
   .comment-row{border-top:1px solid var(--border);padding-top:14px;margin-top:4px;}
   .comment-row p{margin:4px 0 0;font-size:13px;color:var(--text);line-height:1.5;}
 
+  /* ---------- lump sizing stamp (only shown when NBLL is a plan product) ---------- */
+  .lump-sizing-row{margin-bottom:14px;}
+  .lump-stamp{
+    display:inline-block;border:3px solid;border-radius:6px;padding:5px 16px;
+    font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;
+    text-transform:uppercase;letter-spacing:1px;transform:rotate(-4deg);
+  }
+  .lump-stamp.not-done{color:var(--warn);border-color:var(--warn);background:var(--warn)1f;}
+  .lump-stamp.sent{color:var(--flag);border-color:var(--flag);background:var(--flag)1f;}
+  .lump-stamp.ok{color:var(--good);border-color:var(--good);background:var(--good)1f;}
+  .lump-controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--text-dim);}
+  .lump-controls label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+  .lump-controls input[type=radio]{accent-color:var(--accent);}
+
   /* ---------- kpi strip ---------- */
   .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px;}
   .kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;}
@@ -205,6 +219,8 @@
     .card, .timeline-card{break-inside:avoid;page-break-inside:avoid;}
     .auto-lot-group{break-inside:avoid;page-break-inside:avoid;}
     .auto-actions{display:none !important;}
+    .lump-controls{display:none !important;}
+    .lump-stamp{border-width:2px;}
     .stamp{border-width:2px;}
     .under-flag{font-weight:700;}
     .prod-name, .auto-product-head{text-decoration:underline;} /* readable without colour */
@@ -221,7 +237,7 @@
         <svg viewBox="0 0 64 64" fill="none"><path d="M14 40 L18 30 L46 30 L50 40 Z" fill="#12161b"/><rect x="24" y="22" width="4" height="9" fill="#12161b"/><rect x="34" y="19" width="4" height="12" fill="#12161b"/><path d="M10 44 Q20 50 32 44 Q44 38 54 44 L54 48 Q44 42 32 48 Q20 54 10 48 Z" fill="#12161b"/></svg>
       </div>
       <div class="brand-text">
-        <h1>ESLS Sampling Viewer <span class="version-tag">v15</span></h1>
+        <h1>ESLS Sampling Viewer <span class="version-tag">v18</span></h1>
         <span>Electronic Sampling Log Sheet reader</span>
       </div>
     </div>
@@ -256,6 +272,14 @@
           <h2 id="oftTime">—</h2>
         </div>
         <div class="meta">Sheet generated <b id="genTime">—</b></div>
+      </div>
+      <div class="lump-sizing-row" id="lumpSizingRow" style="display:none;">
+        <div class="lump-stamp not-done" id="lumpStamp">Lump Sizing Help Request Not Done</div>
+        <div class="lump-controls">
+          <label><input type="radio" name="lumpChoice" value="sent"> Lump Sizing Help Request Sent</label>
+          <label><input type="radio" name="lumpChoice" value="ok"> Lump Sizing Data OK</label>
+          <button class="btn" id="lumpApplyBtn" type="button">Apply</button>
+        </div>
       </div>
       <div class="comment-row" id="commentRow">
         <div class="id-label">Comment</div>
@@ -294,7 +318,7 @@
   </div>
 </div>
 
-<div class="page-footer">ESLS Sampling Viewer — v15 (23/08/26)</div>
+<div class="page-footer">ESLS Sampling Viewer — v18 (23/08/26)</div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -427,22 +451,41 @@ function parseESLS(lines){
   }
 
   // ---- Sample Records ----
-  const sampleLots = {};
-  const colNames = ['start','end','hatch','loaded','source','pour','sl','phys','chem','usact','usest','usize','screen','call_time','auto','autotons'];
+  // Column layout isn't fixed across sheet variants (e.g. a "SUMMARY" sheet
+  // may omit USAct%/USEst% and only have USize%), so read each lot's actual
+  // "Status | Start Time | ... " header row instead of assuming a fixed
+  // schema — otherwise every field after the missing columns silently
+  // shifts and corrupts Screen/Call Time/Auto/AutoTons.
+  const columnHeaderRe = /^\|?\s*Status\s*\|(.+?)\|?\s*$/;
+  const colKeyMap = {
+    'starttime':'start', 'endtime':'end', 'hatch':'hatch', 'loaded':'loaded',
+    'source':'source', 'pour':'pour', 'sl':'sl', 'phys%':'phys', 'chem%':'chem',
+    'usact%':'usact', 'usest%':'usest', 'usize%':'usize', 'screen':'screen',
+    'calltime':'call_time', 'auto':'auto', 'autotons':'autotons'
+  };
+  const defaultColNames = ['start','end','hatch','loaded','source','pour','sl','phys','chem','usact','usest','usize','screen','call_time','auto','autotons'];
   const numericFields = ['hatch','loaded','pour','phys','chem','usact','usest','usize','auto','autotons'];
+  const sampleLots = {};
   if(srIdx > -1){
     const srLines = text.slice(srIdx).split('\n');
     let currentLot = null;
+    let activeColNames = defaultColNames;
     srLines.forEach(l => {
       const lm = l.match(lotHeaderRe);
       if(lm){ currentLot = lm[1]; sampleLots[currentLot] = []; return; }
+      const hm = l.match(columnHeaderRe);
+      if(hm){
+        const labels = hm[1].split('|').map(s => s.trim()).filter(Boolean);
+        activeColNames = labels.map(label => colKeyMap[label.replace(/\s+/g, '').toLowerCase()] || label);
+        return;
+      }
       const dm = l.match(dataRowRe);
       if(dm && currentLot){
         const status = dm[1];
         const cells = dm[2].split('|').map(cleanCell);
         const row = {status, lot: currentLot};
-        colNames.forEach((name, i) => { row[name] = i < cells.length ? cells[i] : null; });
-        numericFields.forEach(f => { if(row[f] !== null) row[f] = toNum(row[f]); });
+        activeColNames.forEach((name, i) => { row[name] = i < cells.length ? cells[i] : null; });
+        numericFields.forEach(f => { if(row[f] !== undefined && row[f] !== null) row[f] = toNum(row[f]); });
         sampleLots[currentLot].push(row);
       }
     });
@@ -455,13 +498,27 @@ function parseESLS(lines){
 // Rendering
 // ---------------------------------------------------------------------
 let allRows = [];
-const PALETTE = ['#c1502e','#4f7f95','#5a9c6c','#d9a441','#8a6fd1','#c75c9e','#4fa8d9','#a3a86c'];
+// Fixed colors for the known product codes, so the same product always gets
+// the same color across every sheet, session, and printout — not just
+// visually distinct within one sheet. Any other/future code falls back to
+// the rotating palette below.
+const PRODUCT_COLOR_MAP = {
+  'NBLL': '#c1502e', // rust orange
+  'NHGF': '#3d7a94', // steel blue
+  'MACF': '#4a9c5c', // green
+  'JMBF': '#d9a441', // amber
+  'JIMF': '#8a6fd1', // violet
+  'YLGF': '#c75c9e', // rose/magenta
+  'YNDF': '#2fb8c9', // teal/cyan
+};
+const FALLBACK_PALETTE = ['#a3a86c', '#e0785a', '#6fa8dc', '#b08968'];
 let productColorMap = {};
+let fallbackAssignedCount = 0;
 function colorForProduct(prod){
-  if(!(prod in productColorMap)){
-    productColorMap[prod] = PALETTE[Object.keys(productColorMap).length % PALETTE.length];
-  }
-  return productColorMap[prod];
+  if(productColorMap[prod]) return productColorMap[prod];
+  const color = PRODUCT_COLOR_MAP[prod] || FALLBACK_PALETTE[fallbackAssignedCount++ % FALLBACK_PALETTE.length];
+  productColorMap[prod] = color;
+  return color;
 }
 
 // Parses "dd/mm/yy HH:MM" into a Date, and formats the gap between two such
@@ -487,12 +544,26 @@ function render(data){
   document.getElementById('app').style.display = 'block';
   document.getElementById('topActions').style.display = 'flex';
   productColorMap = {}; // reset per sheet so colors are assigned fresh from this sheet's own product codes
+  fallbackAssignedCount = 0;
 
   document.getElementById('shipName').textContent = data.header.shipname || 'Unknown vessel';
   document.getElementById('nomId').textContent = data.header.nomination_id || '—';
   document.getElementById('genTime').textContent = data.header.generated || '—';
   document.getElementById('oftTime').textContent = data.header.oft || '—';
   document.getElementById('commentText').textContent = data.header.comment || '—';
+
+  // Lump sizing stamp — only relevant when NBLL is one of the plan products.
+  // Resets to the default "not done" state on every sheet load.
+  const lumpRow = document.getElementById('lumpSizingRow');
+  if(Object.keys(data.productPlan).includes('NBLL')){
+    lumpRow.style.display = 'block';
+    const stampEl = document.getElementById('lumpStamp');
+    stampEl.textContent = 'Lump Sizing Help Request Not Done';
+    stampEl.className = 'lump-stamp not-done';
+    document.querySelectorAll('input[name="lumpChoice"]').forEach(r => { r.checked = false; });
+  } else {
+    lumpRow.style.display = 'none';
+  }
 
   // flatten sample rows (kept internally for aggregate stats only — no per-record UI)
   allRows = [];
@@ -801,6 +872,19 @@ document.getElementById('printBtn').addEventListener('click', () => {
 document.getElementById('noSampleBtn').addEventListener('click', stampNoSample);
 document.getElementById('combineBtn').addEventListener('click', combineSelected);
 document.getElementById('clearAllBtn').addEventListener('click', clearAllAnnotations);
+
+document.getElementById('lumpApplyBtn').addEventListener('click', () => {
+  const selected = document.querySelector('input[name="lumpChoice"]:checked');
+  if(!selected) return;
+  const stampEl = document.getElementById('lumpStamp');
+  if(selected.value === 'sent'){
+    stampEl.textContent = 'Lump Sizing Help Request Sent';
+    stampEl.className = 'lump-stamp sent';
+  } else if(selected.value === 'ok'){
+    stampEl.textContent = 'Lump Sizing Data OK';
+    stampEl.className = 'lump-stamp ok';
+  }
+});
 </script>
 </body>
 </html>
