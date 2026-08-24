@@ -145,12 +145,16 @@
     background:var(--panel-alt);border:1px solid var(--border);border-left:4px solid var(--accent);
     border-radius:8px;padding:10px 14px;
   }
+  .auto-chip.pending{border-style:dashed;background:transparent;}
+  .auto-chip.pending .auto-num{color:var(--flag);}
   .auto-chip-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
   .auto-num{
     font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;
     text-transform:uppercase;letter-spacing:0.6px;color:var(--text-dim);
   }
+  .auto-tons-wrap{display:flex;flex-direction:column;align-items:flex-end;}
   .auto-tons{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;color:var(--text);}
+  .auto-pct{font-size:10.5px;color:var(--text-dim);white-space:nowrap;}
   .auto-chip-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:11.5px;color:var(--text-dim);}
   .auto-chip-meta b{color:var(--text);font-weight:500;}
   .auto-time{font-size:10.5px;color:var(--text-dim);}
@@ -214,6 +218,7 @@
     .auto-chip-col{gap:4px;}
     .auto-chip{padding:5px 8px;border-radius:5px;}
     .auto-tons{font-size:13px;}
+    .auto-pct{font-size:9px;}
     .auto-num{font-size:9px;}
     .auto-chip-meta{font-size:9px;gap:8px;margin-top:2px;}
     .card, .timeline-card{break-inside:avoid;page-break-inside:avoid;}
@@ -237,7 +242,7 @@
         <svg viewBox="0 0 64 64" fill="none"><path d="M14 40 L18 30 L46 30 L50 40 Z" fill="#12161b"/><rect x="24" y="22" width="4" height="9" fill="#12161b"/><rect x="34" y="19" width="4" height="12" fill="#12161b"/><path d="M10 44 Q20 50 32 44 Q44 38 54 44 L54 48 Q44 42 32 48 Q20 54 10 48 Z" fill="#12161b"/></svg>
       </div>
       <div class="brand-text">
-        <h1>ESLS Sampling Viewer <span class="version-tag">v18</span></h1>
+        <h1>ESLS Sampling Viewer <span class="version-tag">v22</span></h1>
         <span>Electronic Sampling Log Sheet reader</span>
       </div>
     </div>
@@ -318,7 +323,7 @@
   </div>
 </div>
 
-<div class="page-footer">ESLS Sampling Viewer — v18 (23/08/26)</div>
+<div class="page-footer">ESLS Sampling Viewer — v22 (24/08/26)</div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -381,7 +386,7 @@ function toNum(v){
 }
 const metricRowRe = /^\|?\s*([A-Za-z% ]+?)\s*\|(.+?)\|?\s*$/;
 const lotHeaderRe = /^\|?\s*(SS\d+-[A-Z]+)\s*\|?\s*$/;
-const dataRowRe = /^\|?\s*(Completed|Pending|Cancelled|In Progress)\s*\|(.+?)\|?\s*$/;
+const dataRowRe = /^\|?\s*(Completed|Calculated|Pending|Cancelled|In Progress)\s*\|(.+?)\|?\s*$/;
 
 function parseESLS(lines){
   const text = lines.join('\n');
@@ -539,6 +544,18 @@ function durationLabel(startStr, endStr){
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+// Pending/"Calculated" rows sometimes carry an asterisk-prefixed estimate
+// (e.g. "*8798") instead of a plain number — still usable for a percentage,
+// just pull the numeric part out of it.
+function numericValue(v){
+  if(typeof v === 'number') return v;
+  if(typeof v === 'string'){
+    const n = parseFloat(v.replace(/[^\d.]/g, ''));
+    return isNaN(n) ? null : n;
+  }
+  return null;
+}
+
 function render(data){
   document.getElementById('dropzone').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -643,36 +660,77 @@ function render(data){
   });
 
   const columnsHtml = Object.entries(productLots).map(([prod, lots]) => {
+    const productLoaded = data.productPlan[prod] && typeof data.productPlan[prod].Loaded === 'number'
+      ? data.productPlan[prod].Loaded : null;
     const lotsHtml = lots.map(([lot, rows]) => {
-      // Group consecutive rows into batches — each batch ends at the row that
-      // carries the 'auto' number, and includes every row since the previous
-      // batch (they all contributed to that composite sample).
+      // Group rows by their shared Call Time — every row "called in" together
+      // as one composite belongs together, whether the Auto/AutoTons values
+      // happen to sit on the first row of that group or a later one. Groups
+      // with no Auto number anywhere in them (including runs of rows that
+      // share a null call time, e.g. status "Calculated") are shown as
+      // "Pending" rather than dropped.
       const batches = [];
-      let sources = [];
-      let batchStart = null;
-      rows.forEach(r => {
-        if(batchStart === null) batchStart = r.start;
-        if(r.source && !sources.includes(r.source)) sources.push(r.source);
-        if(r.auto !== null && r.auto !== undefined){
-          batches.push({autoRow: r, sources, batchStart});
-          sources = [];
-          batchStart = null;
+      let currentGroup = [];
+      let currentCallTime;
+      function flushGroup(){
+        if(!currentGroup.length) return;
+        const autoRow = currentGroup.find(r => r.auto !== null && r.auto !== undefined);
+        const sources = [];
+        currentGroup.forEach(r => { if(r.source && !sources.includes(r.source)) sources.push(r.source); });
+        const batchStart = currentGroup[0].start;
+        const lastRow = currentGroup[currentGroup.length - 1];
+        if(autoRow){
+          batches.push({autoRow, sources, batchStart, endTime: lastRow.end, pending: false});
+        } else {
+          let pendingAutotons = null;
+          for(let i = currentGroup.length - 1; i >= 0; i--){
+            if(currentGroup[i].autotons !== null && currentGroup[i].autotons !== undefined){
+              pendingAutotons = currentGroup[i].autotons;
+              break;
+            }
+          }
+          batches.push({
+            autoRow: {...lastRow, autotons: pendingAutotons, auto: null},
+            sources, batchStart, endTime: lastRow.end, pending: true
+          });
         }
+        currentGroup = [];
+      }
+      rows.forEach(r => {
+        if(currentGroup.length === 0 || r.call_time === currentCallTime){
+          currentGroup.push(r);
+        } else {
+          flushGroup();
+          currentGroup.push(r);
+        }
+        currentCallTime = r.call_time;
       });
+      flushGroup();
+
       if(!batches.length) return '';
       const lotShort = (lot.match(/^(SS\d+)/) || [null, lot])[1];
-      const chips = batches.map(({autoRow: r, sources, batchStart}) => `
-        <div class="auto-chip" data-chip-id="${lot}__auto${r.auto}" style="border-left-color:${colorForProduct(prod)}">
+      const chips = batches.map(({autoRow: r, sources, batchStart, endTime, pending}, i) => {
+        const rawTons = numericValue(r.autotons);
+        const pct = (rawTons !== null && productLoaded)
+          ? ((rawTons / productLoaded) * 100).toFixed(1) + '%'
+          : null;
+        return `
+        <div class="auto-chip${pending ? ' pending' : ''}" data-chip-id="${lot}__auto${pending ? 'pending'+i : r.auto}" style="border-left-color:${colorForProduct(prod)}">
           <div class="auto-chip-top">
-            <span class="auto-num">Auto ${r.auto}</span>
-            <span class="auto-tons">${r.autotons !== null && r.autotons !== undefined ? r.autotons.toLocaleString() : '—'} t</span>
+            <span class="auto-num">${pending ? 'Pending' : 'Auto ' + r.auto}</span>
+            <span class="auto-tons-wrap">
+              <span class="auto-tons">${r.autotons !== null && r.autotons !== undefined ? r.autotons.toLocaleString() : '—'} t</span>
+              ${pct ? `<span class="auto-pct">${pending ? '~' : ''}${pct} of ${prod} loaded${pending ? ' (est.)' : ''}</span>` : ''}
+            </span>
           </div>
           <div class="auto-chip-meta">
             <span>Source <b>${sources.length ? sources.join(', ') : '—'}</b></span>
-            <span>Duration <b>${durationLabel(batchStart, r.end)}</b></span>
+            <span>Duration <b>${durationLabel(batchStart, endTime)}</b></span>
+            <span>Status <b>${r.status}</b></span>
             <span class="mono">Called ${r.call_time || '—'}</span>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
       return `
       <div class="auto-lot-group">
         <div class="auto-lot-head"><span class="lot-tag">${lotShort}</span></div>
