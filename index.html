@@ -73,6 +73,7 @@
   }
   .ship-id{display:flex;align-items:flex-end;flex-wrap:wrap;gap:32px;margin-bottom:18px;}
   .id-block{display:flex;flex-direction:column;gap:4px;}
+  .id-sub{font-size:11px;color:var(--text-dim);margin-top:-2px;}
   .id-label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim);}
   .ship-id h2{font-size:24px;}
   .ship-id .meta{font-size:12.5px;color:var(--text-dim);margin-left:auto;}
@@ -242,7 +243,7 @@
         <svg viewBox="0 0 64 64" fill="none"><path d="M14 40 L18 30 L46 30 L50 40 Z" fill="#12161b"/><rect x="24" y="22" width="4" height="9" fill="#12161b"/><rect x="34" y="19" width="4" height="12" fill="#12161b"/><path d="M10 44 Q20 50 32 44 Q44 38 54 44 L54 48 Q44 42 32 48 Q20 54 10 48 Z" fill="#12161b"/></svg>
       </div>
       <div class="brand-text">
-        <h1>ESLS Sampling Viewer <span class="version-tag">v22</span></h1>
+        <h1>ESLS Sampling Viewer <span class="version-tag">v23</span></h1>
         <span>Electronic Sampling Log Sheet reader</span>
       </div>
     </div>
@@ -275,6 +276,11 @@
         <div class="id-block">
           <div class="id-label">OFT</div>
           <h2 id="oftTime">—</h2>
+        </div>
+        <div class="id-block" id="berthBlock" style="display:none;">
+          <div class="id-label">Berth</div>
+          <h2 id="berthValue">—</h2>
+          <div class="id-sub" id="berthLocation"></div>
         </div>
         <div class="meta">Sheet generated <b id="genTime">—</b></div>
       </div>
@@ -323,7 +329,7 @@
   </div>
 </div>
 
-<div class="page-footer">ESLS Sampling Viewer — v22 (24/08/26)</div>
+<div class="page-footer">ESLS Sampling Viewer — v23 (24/08/26)</div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -556,6 +562,32 @@ function numericValue(v){
   return null;
 }
 
+// Sample station -> berth pairing, from the Sample Station reference sheet
+// (each berth pair shares the same set of stations) plus which physical
+// site each berth pair sits at.
+const STATION_BERTH_MAP = {
+  '21':  {berth: 'A/B', location: 'Nelson Point'},
+  '730': {berth: 'A/B', location: 'Nelson Point'},
+  '611': {berth: 'A/B', location: 'Nelson Point'},
+  '705': {berth: 'C/D', location: 'Finucane Island'},
+  '891': {berth: 'C/D', location: 'Finucane Island'},
+  '501': {berth: 'E/F', location: 'Nelson Point'},
+  '510': {berth: 'E/F', location: 'Nelson Point'},
+  '780': {berth: 'E/F', location: 'Nelson Point'},
+  '563': {berth: 'E/F', location: 'Nelson Point'},
+  '809': {berth: 'G/H', location: 'Finucane Island'},
+  '897': {berth: 'G/H', location: 'Finucane Island'},
+};
+function berthsForSheet(sampleLots){
+  const found = new Map();
+  Object.keys(sampleLots).forEach(lot => {
+    const m = lot.match(/^SS(\d+)/);
+    const info = m && STATION_BERTH_MAP[m[1]];
+    if(info) found.set(info.berth + '|' + info.location, info);
+  });
+  return Array.from(found.values());
+}
+
 function render(data){
   document.getElementById('dropzone').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -567,6 +599,22 @@ function render(data){
   document.getElementById('nomId').textContent = data.header.nomination_id || '—';
   document.getElementById('genTime').textContent = data.header.generated || '—';
   document.getElementById('oftTime').textContent = data.header.oft || '—';
+
+  // Berth — derived from which sample stations (SS numbers) appear in this
+  // sheet, shown here and reflected in the browser tab title too.
+  const berths = berthsForSheet(data.sampleLots);
+  const berthBlock = document.getElementById('berthBlock');
+  if(berths.length){
+    berthBlock.style.display = '';
+    document.getElementById('berthValue').textContent = berths.map(b => b.berth).join(', ');
+    const locations = [...new Set(berths.map(b => b.location))];
+    document.getElementById('berthLocation').textContent = locations.join(' / ');
+  } else {
+    berthBlock.style.display = 'none';
+  }
+  const titleBerth = berths.length ? berths.map(b => b.berth).join('/') + ' Berth — ' : '';
+  const titleShip = data.header.shipname ? data.header.shipname + ' — ' : '';
+  document.title = titleShip + titleBerth + 'ESLS Sampling Viewer';
   document.getElementById('commentText').textContent = data.header.comment || '—';
 
   // Lump sizing stamp — only relevant when NBLL is one of the plan products.
