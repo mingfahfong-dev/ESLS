@@ -74,6 +74,11 @@
   .ship-id{display:flex;align-items:flex-end;flex-wrap:wrap;gap:32px;margin-bottom:18px;}
   .id-block{display:flex;flex-direction:column;gap:4px;}
   .id-sub{font-size:11px;color:var(--text-dim);margin-top:-2px;}
+  .berth-controls{display:flex;align-items:center;gap:8px;margin-top:4px;}
+  .berth-controls select{
+    background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
+    padding:5px 9px;border-radius:6px;font-size:11.5px;font-family:inherit;
+  }
   .id-label{font-size:11px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-dim);}
   .ship-id h2{font-size:24px;}
   .ship-id .meta{font-size:12.5px;color:var(--text-dim);margin-left:auto;}
@@ -193,43 +198,50 @@
 
   /* ---------- print / PDF export (non-colour printing) ---------- */
   @media print {
-    @page{ size: A4; margin: 10mm; }
+    @page{ size: A4 landscape; margin: 8mm; }
     :root{
       --bg:#ffffff; --panel:#ffffff; --panel-alt:#f0f0f0; --border:#999;
       --text:#000000; --text-dim:#444444; --accent-soft:transparent;
     }
-    body{background:#fff;font-size:11px;}
+    body{background:#fff;font-size:10.5px;}
     .topbar .file-actions, .page-footer, .brand-text span{display:none !important;}
     .kpi-row, .grid-2{display:none !important;}
     .timeline-card, .card, .kpi, .auto-chip{box-shadow:none;}
-    .wrap{padding:6px 0;max-width:100%;}
-    .topbar{margin-bottom:8px;}
-    .timeline-card{padding:12px 16px;margin-bottom:8px;}
-    .ship-id{gap:20px;margin-bottom:10px;}
-    .ship-id h2{font-size:17px;}
-    .id-label{font-size:9px;}
-    .comment-row{padding-top:6px;margin-top:0;}
-    .comment-row p{font-size:11px;}
-    .card{padding:10px 14px;}
-    .card h3{font-size:11px;margin-bottom:8px;}
-    .auto-columns{grid-template-columns:1fr 1fr;gap:14px;}
-    .auto-product-head{font-size:12px;padding-bottom:4px;margin-bottom:6px;}
-    .auto-lot-group{margin-bottom:8px;}
-    .auto-lot-head{margin-bottom:4px;}
-    .auto-chip-col{gap:4px;}
-    .auto-chip{padding:5px 8px;border-radius:5px;}
-    .auto-tons{font-size:13px;}
-    .auto-pct{font-size:9px;}
-    .auto-num{font-size:9px;}
-    .auto-chip-meta{font-size:9px;gap:8px;margin-top:2px;}
-    .card, .timeline-card{break-inside:avoid;page-break-inside:avoid;}
-    .auto-lot-group{break-inside:avoid;page-break-inside:avoid;}
+    .wrap{padding:4px 0;max-width:100%;}
+    .topbar{margin-bottom:6px;}
+    .timeline-card{padding:10px 14px;margin-bottom:6px;}
+    .ship-id{gap:18px;margin-bottom:8px;}
+    .ship-id h2{font-size:16px;}
+    .id-label{font-size:8.5px;}
+    .berth-controls{display:none !important;}
+    .comment-row{padding-top:5px;margin-top:0;}
+    .comment-row p{font-size:10.5px;}
+    .card{padding:8px 12px;}
+    .card h3{font-size:10.5px;margin-bottom:6px;}
+    /* Landscape gives much more width — spread lots side by side instead of
+       stacking two narrow columns, and lay each lot's Auto entries out as a
+       dense grid rather than one entry per row, which is what was pushing
+       content-heavy sheets onto a second page. */
+    .auto-columns{grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px;}
+    .auto-product-head{font-size:11px;padding-bottom:3px;margin-bottom:5px;}
+    .auto-lot-group{margin-bottom:6px;}
+    .auto-lot-head{margin-bottom:3px;}
+    .auto-chip-col{display:grid;grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));gap:4px;}
+    .auto-chip{padding:4px 6px;border-radius:4px;border-left-width:3px;}
+    .auto-chip-top{flex-wrap:wrap;gap:4px;}
+    .auto-tons-wrap{align-items:flex-start;}
+    .auto-tons{font-size:11px;}
+    .auto-pct{font-size:8px;}
+    .auto-num{font-size:8px;}
+    .auto-chip-meta{font-size:7.5px;gap:5px;margin-top:1px;}
+    .auto-chip{break-inside:avoid;page-break-inside:avoid;}
+    .under-flag{font-weight:700;}
+    .comment-badge{border:1.5px solid #000;background:#fff !important;color:#000 !important;}
+    .prod-name, .auto-product-head{text-decoration:underline;} /* readable without colour */
     .auto-actions{display:none !important;}
     .lump-controls{display:none !important;}
     .lump-stamp{border-width:2px;}
     .stamp{border-width:2px;}
-    .under-flag{font-weight:700;}
-    .prod-name, .auto-product-head{text-decoration:underline;} /* readable without colour */
   }
 </style>
 </head>
@@ -243,7 +255,7 @@
         <svg viewBox="0 0 64 64" fill="none"><path d="M14 40 L18 30 L46 30 L50 40 Z" fill="#12161b"/><rect x="24" y="22" width="4" height="9" fill="#12161b"/><rect x="34" y="19" width="4" height="12" fill="#12161b"/><path d="M10 44 Q20 50 32 44 Q44 38 54 44 L54 48 Q44 42 32 48 Q20 54 10 48 Z" fill="#12161b"/></svg>
       </div>
       <div class="brand-text">
-        <h1>ESLS Sampling Viewer <span class="version-tag">v23</span></h1>
+        <h1>ESLS Sampling Viewer <span class="version-tag">v24</span></h1>
         <span>Electronic Sampling Log Sheet reader</span>
       </div>
     </div>
@@ -281,6 +293,15 @@
           <div class="id-label">Berth</div>
           <h2 id="berthValue">—</h2>
           <div class="id-sub" id="berthLocation"></div>
+          <div class="berth-controls">
+            <select id="berthSelect">
+              <option value="A/B|Nelson Point">A/B Berth (Nelson Point)</option>
+              <option value="C/D|Finucane Island">C/D Berth (Finucane Island)</option>
+              <option value="E/F|Nelson Point">E/F Berth (Nelson Point)</option>
+              <option value="G/H|Finucane Island">G/H Berth (Finucane Island)</option>
+            </select>
+            <button class="btn" id="berthApplyBtn" type="button">Apply</button>
+          </div>
         </div>
         <div class="meta">Sheet generated <b id="genTime">—</b></div>
       </div>
@@ -329,7 +350,7 @@
   </div>
 </div>
 
-<div class="page-footer">ESLS Sampling Viewer — v23 (24/08/26)</div>
+<div class="page-footer">ESLS Sampling Viewer — v24 (24/08/26)</div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -601,19 +622,27 @@ function render(data){
   document.getElementById('oftTime').textContent = data.header.oft || '—';
 
   // Berth — derived from which sample stations (SS numbers) appear in this
-  // sheet, shown here and reflected in the browser tab title too.
+  // sheet, shown here and reflected in the browser tab title too. The
+  // dropdown defaults to whatever was auto-detected, but the operator can
+  // pick a different one and hit Apply to confirm/override it.
   const berths = berthsForSheet(data.sampleLots);
   const berthBlock = document.getElementById('berthBlock');
+  const berthSelect = document.getElementById('berthSelect');
   if(berths.length){
     berthBlock.style.display = '';
     document.getElementById('berthValue').textContent = berths.map(b => b.berth).join(', ');
     const locations = [...new Set(berths.map(b => b.location))];
     document.getElementById('berthLocation').textContent = locations.join(' / ');
+    const defaultOption = `${berths[0].berth}|${berths[0].location}`;
+    if(Array.from(berthSelect.options).some(o => o.value === defaultOption)){
+      berthSelect.value = defaultOption;
+    }
   } else {
     berthBlock.style.display = 'none';
   }
+  currentShipName = data.header.shipname || '';
   const titleBerth = berths.length ? berths.map(b => b.berth).join('/') + ' Berth — ' : '';
-  const titleShip = data.header.shipname ? data.header.shipname + ' — ' : '';
+  const titleShip = currentShipName ? currentShipName + ' — ' : '';
   document.title = titleShip + titleBerth + 'ESLS Sampling Viewer';
   document.getElementById('commentText').textContent = data.header.comment || '—';
 
@@ -799,6 +828,7 @@ function render(data){
   // Reset selection/annotation state for the newly loaded sheet and wire up
   // click-to-select on each chip.
   selectedChips = [];
+  combineGroups = [];
   document.getElementById('combineOverlay').innerHTML = '';
   document.querySelectorAll('#autoSamplesWrap > .stamp.combined').forEach(s => s.remove());
   updateAutoActionButtons();
@@ -817,6 +847,7 @@ function render(data){
   });
 }
 
+let currentShipName = '';
 let selectedChips = [];
 function updateAutoActionButtons(){
   const noSampleBtn = document.getElementById('noSampleBtn');
@@ -845,13 +876,20 @@ function stampNoSample(){
   updateAutoActionButtons();
 }
 
-// Every click on "Combine Selected" is its own independent combination —
-// unrelated combos on the same sheet each get their own arrows + label,
-// and each can be removed on its own by clicking its "Combined" stamp.
-function combineSelected(){
-  if(selectedChips.length < 2) return;
+// Combine groups are stored as chip-id references, not frozen pixel
+// coordinates, so they can be redrawn correctly whenever the layout changes
+// (print reflow, window resize) instead of staying stuck at click-time
+// positions.
+let combineGroups = [];
+let combineGroupCounter = 0;
+
+function redrawCombineOverlay(){
   const wrap = document.getElementById('autoSamplesWrap');
   const svg = document.getElementById('combineOverlay');
+  svg.innerHTML = '';
+  wrap.querySelectorAll('.stamp.combined').forEach(el => el.remove());
+  if(!combineGroups.length) return;
+
   const wrapRect = wrap.getBoundingClientRect();
   svg.setAttribute('width', wrap.scrollWidth);
   svg.setAttribute('height', wrap.scrollHeight);
@@ -859,74 +897,89 @@ function combineSelected(){
 
   const flagColor = getComputedStyle(document.documentElement).getPropertyValue('--flag').trim() || '#d9a441';
   const svgNS = 'http://www.w3.org/2000/svg';
+  const defs = document.createElementNS(svgNS, 'defs');
+  defs.innerHTML = `<marker id="combineArrowHead" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
+    <path d="M0,0 L7,3.5 L0,7 Z" fill="${flagColor}"/>
+  </marker>`;
+  svg.appendChild(defs);
 
-  if(!svg.querySelector('defs')){
-    const defs = document.createElementNS(svgNS, 'defs');
-    defs.innerHTML = `<marker id="combineArrowHead" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 Z" fill="${flagColor}"/>
-    </marker>`;
-    svg.appendChild(defs);
-  }
+  combineGroups.forEach(group => {
+    const chips = group.chipIds
+      .map(id => wrap.querySelector(`.auto-chip[data-chip-id="${CSS.escape(id)}"]`))
+      .filter(Boolean);
+    if(chips.length < 2) return; // sheet changed since this group was made
 
-  const points = selectedChips.map(chip => {
-    const r = chip.getBoundingClientRect();
-    return { x: r.left - wrapRect.left + r.width / 2, y: r.top - wrapRect.top + r.height / 2 };
+    const points = chips.map(chip => {
+      const r = chip.getBoundingClientRect();
+      return { x: r.left - wrapRect.left + r.width / 2, y: r.top - wrapRect.top + r.height / 2 };
+    });
+
+    for(let i = 0; i < points.length - 1; i++){
+      const a = points[i], b = points[i + 1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const bow = Math.min(45, dist * 0.3);
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const px = -dy / dist, py = dx / dist;
+      const cx2 = mx + px * bow, cy2 = my + py * bow;
+      const path = document.createElementNS(svgNS, 'path');
+      path.setAttribute('d', `M ${a.x} ${a.y} Q ${cx2} ${cy2} ${b.x} ${b.y}`);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', flagColor);
+      path.setAttribute('stroke-width', '2.5');
+      path.setAttribute('marker-end', 'url(#combineArrowHead)');
+      svg.appendChild(path);
+    }
+
+    const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+    const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
+
+    const label = document.createElement('div');
+    label.className = 'stamp combined';
+    label.textContent = 'Combined';
+    label.style.left = cx + 'px';
+    label.style.top = cy + 'px';
+    label.title = 'Click to remove this combination';
+    label.addEventListener('click', e => {
+      e.stopPropagation();
+      combineGroups = combineGroups.filter(g => g.id !== group.id);
+      redrawCombineOverlay();
+    });
+    wrap.appendChild(label);
   });
+}
 
-  // this combination's own connectors — kept separate from any other combination's lines.
-  // Curved (quadratic bezier) rather than straight, bowing out perpendicular to
-  // the direct path between each pair of selected samples.
-  const groupLines = [];
-  for(let i = 0; i < points.length - 1; i++){
-    const a = points[i], b = points[i + 1];
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
-    const bow = Math.min(45, dist * 0.3);
-    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    // perpendicular unit vector, consistently bowing to the same side
-    const px = -dy / dist, py = dx / dist;
-    const cx2 = mx + px * bow, cy2 = my + py * bow;
-    const path = document.createElementNS(svgNS, 'path');
-    path.setAttribute('d', `M ${a.x} ${a.y} Q ${cx2} ${cy2} ${b.x} ${b.y}`);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', flagColor);
-    path.setAttribute('stroke-width', '2.5');
-    path.setAttribute('marker-end', 'url(#combineArrowHead)');
-    svg.appendChild(path);
-    groupLines.push(path);
-  }
-
-  const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
-  const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
-
-  // Boxed, angled label — same visual language as the "No Sample" stamp,
-  // instead of plain SVG text, so it's actually legible at a glance.
-  const label = document.createElement('div');
-  label.className = 'stamp combined';
-  label.textContent = 'Combined';
-  label.style.left = cx + 'px';
-  label.style.top = cy + 'px';
-  label.title = 'Click to remove this combination';
-  label.addEventListener('click', e => {
-    e.stopPropagation();
-    groupLines.forEach(l => l.remove());
-    label.remove();
+// Every click on "Combine Selected" is its own independent combination —
+// unrelated combos on the same sheet each get their own arrows + label,
+// and each can be removed on its own by clicking its "Combined" stamp.
+function combineSelected(){
+  if(selectedChips.length < 2) return;
+  combineGroupCounter++;
+  combineGroups.push({
+    id: combineGroupCounter,
+    chipIds: selectedChips.map(chip => chip.dataset.chipId)
   });
-  wrap.appendChild(label);
-
   selectedChips.forEach(chip => chip.classList.remove('selected'));
   selectedChips = [];
   updateAutoActionButtons();
+  redrawCombineOverlay();
 }
 
 function clearAllAnnotations(){
   document.querySelectorAll('#autoSummary .stamp.no-sample').forEach(s => s.remove());
-  document.querySelectorAll('#autoSamplesWrap > .stamp.combined').forEach(s => s.remove());
-  document.getElementById('combineOverlay').innerHTML = '';
+  combineGroups = [];
+  redrawCombineOverlay();
   selectedChips.forEach(chip => chip.classList.remove('selected'));
   selectedChips = [];
   updateAutoActionButtons();
 }
+
+// Redraw whenever the layout could have changed shape — window resize on
+// screen, and both sides of the print transition (print CSS reflows the
+// whole page to a different width/column count than the screen view).
+window.addEventListener('resize', redrawCombineOverlay);
+window.addEventListener('beforeprint', redrawCombineOverlay);
+window.addEventListener('afterprint', redrawCombineOverlay);
 
 // ---------------------------------------------------------------------
 // Upload wiring
@@ -990,6 +1043,14 @@ document.getElementById('lumpApplyBtn').addEventListener('click', () => {
     stampEl.textContent = 'Lump Sizing Data OK';
     stampEl.className = 'lump-stamp ok';
   }
+});
+
+document.getElementById('berthApplyBtn').addEventListener('click', () => {
+  const [berth, location] = document.getElementById('berthSelect').value.split('|');
+  document.getElementById('berthValue').textContent = berth;
+  document.getElementById('berthLocation').textContent = location;
+  const titleShip = currentShipName ? currentShipName + ' — ' : '';
+  document.title = titleShip + berth + ' Berth — ESLS Sampling Viewer';
 });
 </script>
 </body>
