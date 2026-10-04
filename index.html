@@ -86,6 +86,19 @@
   .comment-row{border-top:1px solid var(--border);padding-top:14px;margin-top:4px;}
   .comment-row p{margin:4px 0 0;font-size:13px;color:var(--text);line-height:1.5;}
 
+  /* ---------- lump moisture correction reference ---------- */
+  .mc-panel{border-top:1px solid var(--border);padding-top:14px;margin-top:14px;}
+  .mc-ref-table{border-collapse:collapse;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;}
+  .mc-ref-table th{
+    text-align:left;color:var(--text-dim);font-weight:500;text-transform:uppercase;
+    font-size:10px;letter-spacing:0.4px;padding:3px 14px 3px 0;
+  }
+  .mc-ref-table td{padding:3px 14px 3px 0;color:var(--text);}
+  .mc-badge{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:var(--text-dim);
+    background:var(--panel-alt);padding:2px 8px;border-radius:5px;margin-left:8px;
+  }
+
   /* ---------- lump sizing stamp (only shown when NBLL is a plan product) ---------- */
   .lump-sizing-row{margin-bottom:14px;}
   .lump-stamp{
@@ -155,12 +168,12 @@
   .auto-chip.pending .auto-num{color:var(--flag);}
   .auto-chip-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
   .auto-num{
-    font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;
+    font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:20px;
     text-transform:uppercase;letter-spacing:0.6px;color:var(--text-dim);
   }
   .auto-tons-wrap{display:flex;flex-direction:column;align-items:flex-end;}
-  .auto-tons{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;color:var(--text);}
-  .auto-pct{font-size:10.5px;color:var(--text-dim);white-space:nowrap;}
+  .auto-tons{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;color:var(--text);}
+  .auto-pct{font-size:16px;font-weight:700;color:var(--text-dim);white-space:nowrap;}
   .auto-chip-meta{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:11.5px;color:var(--text-dim);}
   .auto-chip-meta b{color:var(--text);font-weight:500;}
   .auto-time{font-size:10.5px;color:var(--text-dim);}
@@ -179,7 +192,8 @@
   }
   .stamp:hover{opacity:0.7;}
   .stamp.no-sample{color:var(--warn);border-color:var(--warn);background:var(--warn)1f;}
-  .stamp.combined{color:var(--flag);border-color:var(--flag);background:var(--flag)1f;}
+  .stamp.combined{color:var(--flag);border-color:var(--flag);background:var(--flag)1f;text-align:center;}
+  .combined-pct{display:block;font-size:16px;font-weight:800;letter-spacing:0.3px;margin-top:2px;color:var(--warn);}
   .auto-actions{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
   .auto-hint{font-size:11.5px;color:var(--text-dim);margin-left:auto;}
   .btn:disabled{opacity:0.4;cursor:not-allowed;}
@@ -215,20 +229,30 @@
     .id-label{font-size:7.5px;}
     .berth-controls{display:none !important;}
     .comment-row{padding-top:4px;margin-top:0;}
+    .mc-panel{padding-top:5px;margin-top:5px;}
+    .mc-ref-table{font-size:9px;}
+    .mc-ref-table th, .mc-ref-table td{padding:2px 10px 2px 0;}
+    .mc-badge{font-size:8.5px;padding:1px 6px;}
     .comment-row p{font-size:9px;}
     .card{padding:6px 10px;}
     .card h3{font-size:9.5px;margin-bottom:5px;}
     /* Same format as on-screen — one column per product, each lot's Auto
        entries stacked vertically — just scaled down to fit a portrait page. */
-    .auto-columns{grid-template-columns:1fr 1fr;gap:8px;}
+    /* Each product gets its own page rather than squeezing two side by side —
+       grid+page-break interacts unreliably across print engines, so stack
+       products as full-width blocks instead and force a break before the
+       second one. */
+    .auto-columns{display:block;}
+    .auto-product-col{width:100%;}
+    .auto-product-col + .auto-product-col{page-break-before:always;break-before:page;}
     .auto-product-head{font-size:10px;padding-bottom:2px;margin-bottom:4px;}
     .auto-lot-group{margin-bottom:5px;}
     .auto-lot-head{margin-bottom:2px;}
     .auto-chip-col{gap:3px;}
     .auto-chip{padding:3px 6px;border-radius:4px;border-left-width:3px;}
-    .auto-tons{font-size:10px;}
-    .auto-pct{font-size:7px;}
-    .auto-num{font-size:7px;}
+    .auto-tons{font-size:8px;}
+    .auto-pct{font-size:11px;}
+    .auto-num{font-size:12px;}
     .auto-chip-meta{font-size:6.5px;gap:5px;margin-top:1px;}
     .auto-chip{break-inside:avoid;page-break-inside:avoid;}
     .under-flag{font-weight:700;}
@@ -238,6 +262,7 @@
     .lump-controls{display:none !important;}
     .lump-stamp{border-width:2px;}
     .stamp{border-width:2px;}
+    .combined-pct{font-size:11px;}
   }
 </style>
 </head>
@@ -251,7 +276,7 @@
         <svg viewBox="0 0 64 64" fill="none"><path d="M14 40 L18 30 L46 30 L50 40 Z" fill="#12161b"/><rect x="24" y="22" width="4" height="9" fill="#12161b"/><rect x="34" y="19" width="4" height="12" fill="#12161b"/><path d="M10 44 Q20 50 32 44 Q44 38 54 44 L54 48 Q44 42 32 48 Q20 54 10 48 Z" fill="#12161b"/></svg>
       </div>
       <div class="brand-text">
-        <h1>ESLS Sampling Viewer <span class="version-tag">v25</span></h1>
+        <h1>ESLS Sampling Viewer <span class="version-tag">v30</span></h1>
         <span>Electronic Sampling Log Sheet reader</span>
       </div>
     </div>
@@ -308,6 +333,10 @@
         <div class="id-label">Comment</div>
         <p id="commentText">—</p>
       </div>
+      <div class="mc-panel" id="mcPanel" style="display:none;">
+        <div class="id-label">Lump Moisture Correction — Berth <span id="mcBerthLabel"></span></div>
+        <table class="mc-ref-table" id="mcRefTable"></table>
+      </div>
     </div>
 
     <div class="kpi-row" id="kpiRow"></div>
@@ -341,7 +370,7 @@
   </div>
 </div>
 
-<div class="page-footer">ESLS Sampling Viewer — v25 (25/08/26)</div>
+<div class="page-footer">ESLS Sampling Viewer — v30 (25/08/26)</div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -600,6 +629,31 @@ function berthsForSheet(sampleLots){
   return Array.from(found.values());
 }
 
+// Reverse of STATION_BERTH_MAP — which stations belong to a given berth pair.
+const BERTH_STATIONS = {
+  'A/B': ['21', '730', '611'],
+  'C/D': ['705', '891'],
+  'E/F': ['501', '510', '780', '563'],
+  'G/H': ['809', '897'],
+};
+
+// Lump moisture correction factors by station — only MACF and YNDF have a
+// factor; other products (NBLL, JMBF, etc.) have none, and "—" stations
+// (e.g. SS-780) genuinely have no factor in the reference sheet either.
+const STATION_MOISTURE_MAP = {
+  '21':  {MACF: 0.92, YNDF: 0.64},
+  '730': {MACF: 0.92, YNDF: 0.64},
+  '611': {MACF: 1.14, YNDF: 1.14},
+  '705': {MACF: 0.92, YNDF: 0.64},
+  '891': {MACF: 0.92, YNDF: 0.64},
+  '501': {MACF: 1.14, YNDF: 1.14},
+  '510': {MACF: 1.14, YNDF: 1.14},
+  '780': {MACF: 0.92, YNDF: 0.64},
+  '563': {MACF: 0.92, YNDF: 0.64},
+  '809': {MACF: 0.92, YNDF: 0.79},
+  '897': {MACF: 0.92, YNDF: 0.64},
+};
+
 function render(data){
   document.getElementById('dropzone').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -642,6 +696,25 @@ function render(data){
   const titleShip = currentShipName ? currentShipName + ' — ' : '';
   document.title = titleShip + titleBerth + 'ESLS Sampling Viewer';
   document.getElementById('commentText').textContent = data.header.comment || '—';
+
+  // Lump moisture correction reference panel — the stations belonging to
+  // the detected berth pair, with their MACF/YNDF correction factors.
+  const mcPanel = document.getElementById('mcPanel');
+  const stationsForMc = berths.length ? (BERTH_STATIONS[berths[0].berth] || []) : [];
+  if(stationsForMc.length){
+    mcPanel.style.display = '';
+    document.getElementById('mcBerthLabel').textContent = berths[0].berth;
+    const rows = stationsForMc.map(s => {
+      const e = STATION_MOISTURE_MAP[s] || {};
+      const macf = (e.MACF !== undefined && e.MACF !== null) ? e.MACF : '—';
+      const yndf = (e.YNDF !== undefined && e.YNDF !== null) ? e.YNDF : '—';
+      return `<tr><td>SS${s}</td><td>${macf}</td><td>${yndf}</td></tr>`;
+    }).join('');
+    document.getElementById('mcRefTable').innerHTML =
+      '<tr><th>Station</th><th>MACF</th><th>YNDF</th></tr>' + rows;
+  } else {
+    mcPanel.style.display = 'none';
+  }
 
   // Lump sizing stamp — only relevant when NBLL is one of the plan products.
   // Resets to the default "not done" state on every sheet load.
@@ -783,13 +856,18 @@ function render(data){
 
       if(!batches.length) return '';
       const lotShort = (lot.match(/^(SS\d+)/) || [null, lot])[1];
+      const stationNum = lotShort.replace(/^SS/, '');
+      const mcEntry = STATION_MOISTURE_MAP[stationNum];
+      const mcValue = mcEntry ? mcEntry[prod] : undefined;
+      const mcBadge = (mcValue !== undefined && mcValue !== null)
+        ? `<span class="mc-badge">Moisture Correction ${mcValue}</span>` : '';
       const chips = batches.map(({autoRow: r, sources, batchStart, endTime, pending}, i) => {
         const rawTons = numericValue(r.autotons);
         const pct = (rawTons !== null && productLoaded)
           ? ((rawTons / productLoaded) * 100).toFixed(1) + '%'
           : null;
         return `
-        <div class="auto-chip${pending ? ' pending' : ''}" data-chip-id="${lot}__auto${pending ? 'pending'+i : r.auto}" style="border-left-color:${colorForProduct(prod)}">
+        <div class="auto-chip${pending ? ' pending' : ''}" data-chip-id="${lot}__auto${pending ? 'pending'+i : r.auto}" data-raw-tons="${rawTons !== null ? rawTons : ''}" data-product-loaded="${productLoaded !== null ? productLoaded : ''}" style="border-left-color:${colorForProduct(prod)}">
           <div class="auto-chip-top">
             <span class="auto-num">${pending ? 'Pending' : 'Auto ' + r.auto}</span>
             <span class="auto-tons-wrap">
@@ -807,7 +885,7 @@ function render(data){
       }).join('');
       return `
       <div class="auto-lot-group">
-        <div class="auto-lot-head"><span class="lot-tag">${lotShort}</span></div>
+        <div class="auto-lot-head"><span class="lot-tag">${lotShort}</span>${mcBadge}</div>
         <div class="auto-chip-col">${chips}</div>
       </div>`;
     }).join('');
@@ -911,6 +989,10 @@ function redrawCombineOverlay(){
       return { x: r.left - wrapRect.left + r.width / 2, y: r.top - wrapRect.top + r.height / 2 };
     });
 
+    // Track each curve's true midpoint (on the bezier itself, not just the
+    // straight-line average of the endpoints) so the label can sit directly
+    // on the arrow rather than floating off to the side of its bow.
+    const curveMidpoints = [];
     for(let i = 0; i < points.length - 1; i++){
       const a = points[i], b = points[i + 1];
       const dx = b.x - a.x, dy = b.y - a.y;
@@ -926,14 +1008,22 @@ function redrawCombineOverlay(){
       path.setAttribute('stroke-width', '2.5');
       path.setAttribute('marker-end', 'url(#combineArrowHead)');
       svg.appendChild(path);
+      // point at t=0.5 on the quadratic bezier itself
+      curveMidpoints.push({
+        x: 0.25 * a.x + 0.5 * cx2 + 0.25 * b.x,
+        y: 0.25 * a.y + 0.5 * cy2 + 0.25 * b.y
+      });
     }
 
-    const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
-    const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
+    const midSeg = curveMidpoints[Math.floor((curveMidpoints.length - 1) / 2)];
+    const cx = midSeg.x;
+    const cy = midSeg.y;
 
     const label = document.createElement('div');
     label.className = 'stamp combined';
-    label.textContent = 'Combined';
+    label.innerHTML = group.totalPct
+      ? `Combined<br><span class="combined-pct">${group.totalPct} total</span>`
+      : 'Combined';
     label.style.left = cx + 'px';
     label.style.top = cy + 'px';
     label.title = 'Click to remove this combination';
@@ -949,12 +1039,23 @@ function redrawCombineOverlay(){
 // Every click on "Combine Selected" is its own independent combination —
 // unrelated combos on the same sheet each get their own arrows + label,
 // and each can be removed on its own by clicking its "Combined" stamp.
+// The combined total % is computed once here from each chip's own tonnage
+// and its product's loaded total (data attributes set at render time),
+// not re-derived from rendered text, so it stays correct across redraws.
 function combineSelected(){
   if(selectedChips.length < 2) return;
+  const totalTons = selectedChips.reduce((sum, chip) => {
+    const v = numericValue(chip.dataset.rawTons);
+    return sum + (v || 0);
+  }, 0);
+  const productLoadedVal = numericValue(selectedChips[0].dataset.productLoaded);
+  const totalPct = productLoadedVal ? ((totalTons / productLoadedVal) * 100).toFixed(1) + '%' : null;
+
   combineGroupCounter++;
   combineGroups.push({
     id: combineGroupCounter,
-    chipIds: selectedChips.map(chip => chip.dataset.chipId)
+    chipIds: selectedChips.map(chip => chip.dataset.chipId),
+    totalPct
   });
   selectedChips.forEach(chip => chip.classList.remove('selected'));
   selectedChips = [];
