@@ -52,6 +52,8 @@
   .btn:hover{border-color:var(--accent);}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#12161b;font-weight:600;}
   .btn.primary:hover{background:#a8461f;}
+  .lump-link-btn{background:transparent;border-color:var(--accent);color:var(--accent);text-decoration:none;font-weight:600;}
+  .lump-link-btn:hover{background:var(--accent-soft);}
   input[type=file]{display:none;}
 
   /* ---------- upload state ---------- */
@@ -98,6 +100,15 @@
     font-size:10px;letter-spacing:0.4px;padding:3px 14px 3px 0;
   }
   .mc-ref-table td{padding:3px 14px 3px 0;color:var(--text);}
+  .mc-calculated{
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--text-dim);
+  }
+  .mc-calculated b{color:var(--accent);font-size:14px;}
+  .mc-calculated .mc-calc-label{
+    font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-dim);
+    display:block;margin-bottom:4px;
+  }
   .mc-badge{
     font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:var(--text-dim);
     background:var(--panel-alt);padding:2px 8px;border-radius:5px;margin-left:8px;
@@ -237,6 +248,8 @@
     .comment-row{padding-top:4px;margin-top:0;}
     .mc-panel{padding-top:5px;margin-top:5px;}
     .mc-ref-table{font-size:9px;}
+    .mc-calculated{font-size:9px;margin-top:6px;padding-top:6px;}
+    .mc-calculated b{font-size:11px;}
     .mc-ref-table th, .mc-ref-table td{padding:2px 10px 2px 0;}
     .mc-badge{font-size:8.5px;padding:1px 6px;}
     .comment-row p{font-size:11px;padding:5px 8px;}
@@ -303,7 +316,7 @@
         <svg viewBox="0 0 64 64" fill="none"><path d="M14 40 L18 30 L46 30 L50 40 Z" fill="#12161b"/><rect x="24" y="22" width="4" height="9" fill="#12161b"/><rect x="34" y="19" width="4" height="12" fill="#12161b"/><path d="M10 44 Q20 50 32 44 Q44 38 54 44 L54 48 Q44 42 32 48 Q20 54 10 48 Z" fill="#12161b"/></svg>
       </div>
       <div class="brand-text">
-        <h1>ESLS Sampling Viewer <span class="version-tag">v33</span></h1>
+        <h1>ESLS Sampling Viewer <span class="version-tag">v36</span></h1>
         <span>Electronic Sampling Log Sheet reader</span>
       </div>
     </div>
@@ -354,6 +367,7 @@
           <label><input type="radio" name="lumpChoice" value="sent"> Lump Sizing Help Request Sent</label>
           <label><input type="radio" name="lumpChoice" value="ok"> Lump Sizing Data OK</label>
           <button class="btn" id="lumpApplyBtn" type="button">Apply</button>
+          <a class="btn lump-link-btn" href="http://per0pmtm02:8080/ords/f?p=105:LOGIN_DESKTOP:110366674575400:::::" target="_blank" rel="noopener">Lump Sizing Help Request ↗</a>
         </div>
       </div>
       <div class="comment-row" id="commentRow">
@@ -363,6 +377,7 @@
       <div class="mc-panel" id="mcPanel" style="display:none;">
         <div class="id-label">Lump Moisture Correction — Berth <span id="mcBerthLabel"></span></div>
         <table class="mc-ref-table" id="mcRefTable"></table>
+        <div class="mc-calculated" id="mcCalculatedSummary"></div>
       </div>
     </div>
 
@@ -397,7 +412,7 @@
   </div>
 </div>
 
-<div class="page-footer">ESLS Sampling Viewer — v33 (25/08/26)</div>
+<div class="page-footer">ESLS Sampling Viewer — v36 (25/08/26)</div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -685,6 +700,51 @@ const STATION_MOISTURE_MAP = {
   '897': {MACF: 0.92, YNDF: 0.64},
 };
 
+// Tonnage-weighted moisture correction per product — when a product draws
+// from more than one station (e.g. MACF from both SS563 and SS780), this
+// weights each station's fixed correction factor by how much tonnage
+// actually came from it, rather than just listing each station separately.
+// Chips marked "No Sample" (declared) are excluded, since there's no sample
+// to correct; pending/unclosed batches are excluded too, since their
+// tonnage isn't confirmed yet.
+function updateCalculatedMC(){
+  const summaryEl = document.getElementById('mcCalculatedSummary');
+  const panel = document.getElementById('mcPanel');
+  if(!summaryEl || !panel) return;
+  if(panel.style.display === 'none'){ summaryEl.innerHTML = ''; return; }
+
+  const productTotals = {};
+  document.querySelectorAll('.auto-chip').forEach(chip => {
+    if(chip.classList.contains('pending')) return;
+    if(chip.querySelector('.stamp.no-sample')) return;
+    const chipId = chip.dataset.chipId || '';
+    const lotMatch = chipId.match(/^SS(\d+)-([A-Z]+)__/);
+    if(!lotMatch) return;
+    const station = lotMatch[1];
+    const prod = lotMatch[2];
+    const mcEntry = STATION_MOISTURE_MAP[station];
+    const factor = mcEntry ? mcEntry[prod] : undefined;
+    if(factor === undefined || factor === null) return;
+    const tons = numericValue(chip.dataset.rawTons);
+    if(tons === null) return;
+    if(!productTotals[prod]) productTotals[prod] = {weightedSum: 0, totalTons: 0};
+    productTotals[prod].weightedSum += tons * factor;
+    productTotals[prod].totalTons += tons;
+  });
+
+  const rows = Object.entries(productTotals)
+    .filter(([, t]) => t.totalTons > 0)
+    .map(([prod, t]) => {
+      const avg = t.weightedSum / t.totalTons;
+      return `<div><span class="mc-calc-label">Calculated Moisture Correction — ${prod}</span>` +
+        `<b>${avg.toFixed(3)}</b> <span style="font-size:11px;">(weighted over ${Math.round(t.totalTons).toLocaleString()} t sampled)</span></div>`;
+    });
+
+  summaryEl.innerHTML = rows.length
+    ? rows.join('')
+    : '<span style="font-size:11px;">No sampled MACF/YNDF tonnage available to calculate from yet.</span>';
+}
+
 function render(data){
   document.getElementById('dropzone').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -729,20 +789,26 @@ function render(data){
   document.getElementById('commentText').textContent = data.header.comment || '—';
 
   // Lump moisture correction reference panel — the stations belonging to
-  // the detected berth pair, with their MACF/YNDF correction factors.
+  // the detected berth pair, with correction factors only for the products
+  // actually on this sheet (e.g. a MACF-only sheet shouldn't show a YNDF
+  // column that has nothing to do with it).
   const mcPanel = document.getElementById('mcPanel');
   const stationsForMc = berths.length ? (BERTH_STATIONS[berths[0].berth] || []) : [];
-  if(stationsForMc.length){
+  const mcProducts = ['MACF', 'YNDF'].filter(p => Object.keys(data.productPlan).includes(p));
+  if(stationsForMc.length && mcProducts.length){
     mcPanel.style.display = '';
     document.getElementById('mcBerthLabel').textContent = berths[0].berth;
     const rows = stationsForMc.map(s => {
       const e = STATION_MOISTURE_MAP[s] || {};
-      const macf = (e.MACF !== undefined && e.MACF !== null) ? e.MACF : '—';
-      const yndf = (e.YNDF !== undefined && e.YNDF !== null) ? e.YNDF : '—';
-      return `<tr><td>SS${s}</td><td>${macf}</td><td>${yndf}</td></tr>`;
+      const cells = mcProducts.map(p => {
+        const v = e[p];
+        return `<td>${(v !== undefined && v !== null) ? v : '—'}</td>`;
+      }).join('');
+      return `<tr><td>SS${s}</td>${cells}</tr>`;
     }).join('');
+    const headerCells = mcProducts.map(p => `<th>${p}</th>`).join('');
     document.getElementById('mcRefTable').innerHTML =
-      '<tr><th>Station</th><th>MACF</th><th>YNDF</th></tr>' + rows;
+      `<tr><th>Station</th>${headerCells}</tr>` + rows;
   } else {
     mcPanel.style.display = 'none';
   }
@@ -951,6 +1017,8 @@ function render(data){
       updateAutoActionButtons();
     });
   });
+
+  updateCalculatedMC();
 }
 
 let currentShipName = '';
@@ -973,13 +1041,14 @@ function stampNoSample(){
       stamp.className = 'stamp no-sample';
       stamp.textContent = 'No Sample';
       stamp.title = 'Click to remove this mark';
-      stamp.addEventListener('click', e => { e.stopPropagation(); stamp.remove(); });
+      stamp.addEventListener('click', e => { e.stopPropagation(); stamp.remove(); updateCalculatedMC(); });
       chip.appendChild(stamp);
     }
     chip.classList.remove('selected');
   });
   selectedChips = [];
   updateAutoActionButtons();
+  updateCalculatedMC();
 }
 
 // Combine groups are stored as chip-id references, not frozen pixel
@@ -1129,6 +1198,7 @@ function clearAllAnnotations(){
   selectedChips.forEach(chip => chip.classList.remove('selected'));
   selectedChips = [];
   updateAutoActionButtons();
+  updateCalculatedMC();
 }
 
 // Redraw whenever the layout could have changed shape — window resize on
